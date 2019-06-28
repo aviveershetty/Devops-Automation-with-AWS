@@ -1,0 +1,37 @@
+# Assignment 1: Start an existing instance, run behat test, store logs and stop the instamce
+- name: DEMO
+  hosts: localhost
+  gather_facts: false
+  vars:
+    instance_ids:
+      - 'i-0934ab88771e1eba4'
+    region: us-west-2
+  tasks:
+    - name: Start the instance
+      ec2:
+        instance_ids: '{{ instance_ids }}'
+        region: '{{ region }}'
+        state: running
+        wait: True
+        vpc_subnet_id: subnet-50b5a137
+        assign_public_ip: yes
+
+    # - name: Exceute a script on the above instance
+    #   shell: /home/avinashpv/wp/tests/prepareForBehatTests.sh >> log.txt
+    #   register: log
+    #   args:
+    #     chdir: /home/avinashpv/wp/tests/
+
+    # - debug: msg= "{{ log.stdout }}"
+
+    # - debug: msg= "{{ log.stderr }}"
+    - name: Execute shell
+      shell: ls > log.txt
+
+
+    # - name: Stop above instance using Instance ID
+    #   ec2:
+    #     region: "{{region}}"
+    #     wait: true
+    #     instance_ids: '{{ instance_ids }}'
+    #     state: 'stopped'

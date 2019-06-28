@@ -5,8 +5,8 @@
   become_method: sudo
   tasks:
     - name: run command with shell
-      #shell: pwd > log.txt
-      shell: prepareForBehatTests.sh > log.txt
-      register: log
-      args:
-        chdir: /wp/tests/
+        shell: pwd > log.txt
+      #shell: prepareForBehatTests.sh > log.txt
+      #register: log
+      #args:
+        #chdir: /wp/tests/

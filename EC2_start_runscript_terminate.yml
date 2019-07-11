@@ -94,16 +94,16 @@
     sudo: True
     remote_user: ubuntu
     gather_facts: false
-    # vars:
-    #   githubuser: "aviveershetty"
-    #   githubpassword: "SAsa123@@" 
-    vars_prompt: 
-      - name: "githubuser" 
-        prompt: "Enter your github username" 
-        private: no 
-      - name: "githubpassword" 
-        prompt: "Enter your github password" 
-        private: yes 
+    vars:
+      githubuser: "aviveershetty"
+      githubpassword: "SAsa123@@" 
+#     vars_prompt: 
+#       - name: "githubuser" 
+#         prompt: "Enter your github username" 
+#         private: no 
+#       - name: "githubpassword" 
+#         prompt: "Enter your github password" 
+#         private: yes 
     tasks:
       - name: 1.Cloning Repository
         git:         

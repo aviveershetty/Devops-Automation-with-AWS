@@ -1,0 +1,131 @@
+---
+  - name: ..........Provisioning an EC2 Instance..........
+    hosts: localhost
+    connection: local
+    gather_facts: False
+    tags: provisioning
+    vars:
+      instance_type: t2.micro
+      security_group: newSecGroup
+      image: ami-005bdb005fb00e791
+      region: us-west-2
+      keypair: apv280
+      count: 1
+    tasks:
+      #######################################################################################
+      ######Uncomment below tasks, if you wish to create new security group and keypair######
+      #######################################################################################
+      # - name: Create a new security group with below given name
+      #   local_action:
+      #     module: ec2_group
+      #     name: "{{ security_group }}"
+      #     description: Security Group for Newly Created EC2 Instance
+      #     region: "{{ region }}"
+      #     rules:
+      #       - proto: tcp
+      #         from_port: 22
+      #         to_port: 22
+      #         cidr_ip: 0.0.0.0/0
+      #       - proto: tcp  
+      #         from_port: 80
+      #         to_port: 80
+      #         cidr_ip: 0.0.0.0/0
+      #     rules_egress:
+      #       - proto: all
+      #         cidr_ip: 0.0.0.0/0
+
+      # - name: Create an EC2 key
+      #   ec2_key:
+      #     name: "{{ keypair }}"
+      #     region: "{{ region }}"
+      #   register: ec2_key
+
+      # - name: Save private key
+      #   copy: content="{{ ec2_key.key.private_key }}" dest="/home/avinash/Desktop/keypair/apv280-1.pem" mode=0600
+      #   when: ec2_key.changed
+
+      - name: 1.Launching new t2 micro EC2 Instance
+        local_action: ec2
+                      group={{ security_group }}
+                      instance_type={{ instance_type}}
+                      image={{ image }}
+                      wait=true
+                      region={{ region }}
+                      keypair={{ keypair }}
+                      count={{count}}
+        register: ec2  
+        
+      - name: Adding newly created EC2 instance to the local host group
+        local_action: lineinfile 
+                      dest="./hosts" 
+                      regexp="{{ item.public_ip }}" 
+                      insertafter="[demogorgon]" line="{{ item.public_ip }}"
+        with_items: "{{ ec2.instances }}"
+
+      - name: 8.Waiting for EC2 Instance to Spin-up and be available for SSH access
+        local_action: wait_for
+                      host="{{ item.public_ip }}"
+                      port=22
+                      state=started
+        with_items: "{{ ec2.instances }}"
+
+      - name: 5.Setting the Instance facts
+        set_fact:
+          instance_public_ip: "{{ ec2.instances[0].public_ip }}"
+          instance_id: "{{ ec2.instances[0].id }}"
+      
+      - name: 6.Adding Tags to Identify
+        local_action: ec2_tag resource={{ item.id }} region={{ region }} state=present
+        with_items: "{{ ec2.instances }}"
+        args:
+          tags:
+            Name:  demogorgon
+            Owner: Avinash Veershetty
+            PurPose: Creating a new EC2 instance, running Behat test script and destroying the instance after script run. 
+
+      - name: 7.Create SSH Group to login dynamically to EC2 Instance
+        add_host:
+          hostname: "{{ item.public_ip }}"
+          groupname: demogorgon
+        with_items: "{{ ec2.instances }}"
+
+  - name: ..........Cloning WP Repository and running Behat test script.......... 
+    hosts: demogorgon
+    sudo: True
+    remote_user: ubuntu
+    gather_facts: false
+    # vars:
+    #   githubuser: "aviveershetty"
+    #   githubpassword: "SAsa123@@" 
+    vars_prompt: 
+      - name: "githubuser" 
+        prompt: "Enter your github username" 
+        private: no 
+      - name: "githubpassword" 
+        prompt: "Enter your github password" 
+        private: yes 
+    tasks:
+      - name: 1.Cloning Repository
+        git:         
+          repo: "https://{{ githubuser | urlencode }}:{{ githubpassword | urlencode }}@github.com/NYUeServ/wp.git"    
+          version: master
+          dest: /home/ubuntu/wp          
+    
+      - name: 2.Changing working directory and executing test script               
+        shell: 
+          chdir: /home/ubuntu/wp/tests/
+          cmd: sh prepareForBehatTests.sh >> log.txt
+
+  - name: ..........Terminating above instance..........
+    hosts: localhost
+    connection: local
+    gather_facts: false
+    vars:
+      region: 'us-west-2'
+    tasks:
+      - name: Terminate Existing instances using Instance ID's
+        ec2:
+          region: "{{ region }}"
+          wait: true
+          instance_ids: "{{ ec2.instances[0].id }}"
+          state: 'absent'
